@@ -16,35 +16,4 @@ gin的路由树的构建和匹配没有完全搞懂，特别是统配符部分�
 
 
 
-
-
-提交之前测试发现一个暂时没解决的bug: recovery中间件没有正确触发，panic被net/http库中如下方法捕获并recover了，(中间件的defer函数确实是在以下的defer后创建的),更诡异的是，我把recovery的逻辑拉到context外面来直接在ServeHTTP中执行它缺生效了....
-
-```go
-func (c *conn) serve(ctx context.Context) {
-	//省略 ....
-	defer func() {
-		if err := recover(); err != nil && err != ErrAbortHandler {
-			const size = 64 << 10
-			buf := make([]byte, size)
-			buf = buf[:runtime.Stack(buf, false)]
-			c.server.logf("http: panic serving %v: %v\n%s", c.remoteAddr, err, buf)
-		}
-		if inFlightResponse != nil {
-			inFlightResponse.cancelCtx()
-		}
-		if !c.hijacked() {
-			if inFlightResponse != nil {
-				inFlightResponse.conn.r.abortPendingRead()
-				inFlightResponse.reqBody.Close()
-			}
-			c.close()
-			c.setState(c.rwc, StateClosed, runHooks)
-		}
-	}()
-   //省略 ....
-	
-}
-```
-
 net/http库的学习笔记也上传一下(gin 其实也写了，卡在路由树的通配符那边)

@@ -156,6 +156,7 @@ func Recovery() context.HandlerFunc {
 				log.Println("Panic:", err)
 			}
 		}()
+		c.Next()
 	}
 }
 func CORS() context.HandlerFunc {
