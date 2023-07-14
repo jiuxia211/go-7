@@ -65,3 +65,8 @@ func (c *Context) Next() {
 func (c *Context) Abort() {
 	c.Index = abortIndex
 }
+
+// IsAborted 判断上下文是否终止
+func (c *Context) IsAborted() bool {
+	return c.Index >= abortIndex
+}

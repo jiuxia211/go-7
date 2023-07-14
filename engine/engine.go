@@ -34,7 +34,7 @@ func NewEngine() *Engine {
 		},
 	}
 	engine.pool.New = func() any {
-		return &context.Context{Index: -1}
+		return &context.Context{}
 	}
 	engine.methodTree = make(map[string]MethodList)
 	engine.methodTree[http.MethodGet] = nil
@@ -112,6 +112,7 @@ func (engine *Engine) handleHTTPRequest(c *context.Context) {
 			c.IsMatch = true
 			handlers := engine.combineHandlers(v.handlers)
 			c.Handlers = handlers
+			c.Index = -1
 			c.Next()
 			return
 		}
@@ -120,6 +121,9 @@ func (engine *Engine) handleHTTPRequest(c *context.Context) {
 	for _, handler := range engine.middlewares {
 		c.IsMatch = false
 		handler(c)
+		if c.IsAborted() {
+			return
+		}
 	}
 	c.Write("路由未匹配成功")
 }
@@ -137,15 +141,18 @@ func (engine *Engine) AddMiddleware(handler ...context.HandlerFunc) {
 }
 func Logger() context.HandlerFunc {
 	return func(c *context.Context) {
+		fmt.Println("logger")
 		code := 404
 		if c.IsMatch {
 			code = 200
 		}
 		log.Printf("[GOUT] |%v|  |%v|  \"%6v\" |%6v|", code, c.Request.Method, c.Request.URL.Path, c.Request.Header.Get("Content-Length"))
+		c.Next()
 	}
 }
 func Recovery() context.HandlerFunc {
 	return func(c *context.Context) {
+		fmt.Println("recovery")
 		defer func() {
 			if err := recover(); err != nil {
 				// 生成 HTTP 500 错误响应
@@ -153,14 +160,16 @@ func Recovery() context.HandlerFunc {
 					"error": "Internal Server Error",
 				})
 				// 打印 panic 的详细信息
-				log.Println("Panic:", err)
+				log.Println("Recover form Panic:", err)
 			}
+			c.Abort()
 		}()
 		c.Next()
 	}
 }
 func CORS() context.HandlerFunc {
 	return func(c *context.Context) {
+		fmt.Println("cors")
 		method := c.Request.Method               //请求方法
 		origin := c.Request.Header.Get("Origin") //请求头部
 		var headerKeys []string                  // 声明请求头keys
@@ -194,5 +203,6 @@ func CORS() context.HandlerFunc {
 		if method == "OPTIONS" {
 			c.JSON(http.StatusOK, "Options Request!")
 		}
+		c.Next()
 	}
 }
